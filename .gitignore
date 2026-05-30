@@ -216,3 +216,18 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project-specific
+# Data and results directories (keep dirs, ignore contents)
+data/*.csv
+results/
+custom_data/
+custom_results/
+
+# Colab/Jupyter temporary files
+.ipynb_checkpoints/
+*.zip
+
+# Environment variables
+.env.local
+.env*.local
