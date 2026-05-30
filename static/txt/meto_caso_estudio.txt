@@ -1,0 +1,645 @@
+\chapter{Metodología}\label{Cap2}
+
+La presente investigación adopta un enfoque metodológico cuantitativo basado en el análisis y simulación de un modelo de Despacho Económico. En lugar de reconstruir las estrategias de oferta a lo largo de ciclos diarios completos, el modelo evalúa horas específicas del mercado. La metodología se estructura en tres fases: en primer lugar, se establece un escenario base empírico utilizando los resultados reales de casación publicados por el Operador del Mercado Ibérico de Energía (OMIE); posteriormente, se formulan dos modelos de optimización binivel (MPEC) que evalúan escenarios alternativos donde el poder de mercado se ejerce, respectivamente, mediante la agregación por cohortes tecnológicas y mediante la agregación corporativa por carteras de empresa.
+
+La interacción entre los agentes del mercado se modela bajo un esquema de teoría de juegos tipo Stackelberg. Esta metodología garantiza que las simulaciones partan de un mix de generación y unas curvas de demanda realistas, permitiendo cuantificar con precisión matemática el impacto de los comportamientos estratégicos en la formación de precios del sistema eléctrico.
+
+\section{Adquisición de Datos y Definición del Escenario Base Histórico}
+
+El primer paso metodológico exige la reconstrucción fidedigna de las condiciones de contorno bajo las cuales operó el sistema. En esta fase preliminar no se ejecuta ninguna optimización matemática, sino un análisis estático de los registros públicos del operador (OMIE).
+
+A lo largo de la formulación, el índice $k$ denota cada uno de los escalones o tramos individuales que conforman la curva agregada de oferta de generación, y el índice $g$ se refiere a las distintas tipologías tecnológicas en las que se agrupa dicha generación. Análogamente, se define la demanda a través de sus correspondientes tramos o bloques de compra.
+
+Para cada hora de estudio seleccionada, se recaban las Curvas Agregadas de Casación. Cada tramo de generación casado aporta una cantidad de energía específica ($q_{k}^{*}$) a un precio de oferta determinado ($C_{k}$). Dado el carácter agregado de estas curvas, el análisis no desciende al nivel de unidades físicas individuales. En su lugar, se aplica un criterio de asignación tecnológica: cada tramo de oferta $k$ se clasifica y asigna a un subconjunto tecnológico específico ($K_{g} \subseteq K$). Este método permite reconstruir el mix de generación asumiendo el orden de mérito estándar del mercado, donde los rangos de precios ofertados son indicativos de los costes marginales o de oportunidad asociados a cada tipología.
+
+A partir de esta clasificación, la potencia histórica total casada por cada tipo de generación ($P_{g}^{*}$) se obtiene sumando los volúmenes de los tramos que le han sido asignados:
+
+\begin{equation} \label{eq:potencia_historica}
+    P_{g}^{*} = \sum_{k \in K_{g}} q_{k}^{*} \quad \forall g \in G
+\end{equation}
+
+Con la casación histórica definida por el precio marginal resultante del mercado ($\pi_{m}^{*}$), se calcula el beneficio bruto percibido por cada cohorte tecnológica en el escenario base observacional:
+
+\begin{equation} \label{eq:beneficio_historico}
+    IB_{g}^{*} = P_{g}^{*} \cdot \pi_{m}^{*} \quad \forall g \in G
+\end{equation}
+
+Estos volúmenes históricos ($P_{g}^{*}$) actuarán como parámetros de referencia para delimitar las capacidades operativas en las simulaciones de los modelos MPEC posteriores.
+
+\section{Restricciones Tecnológicas y Ofertas Sensibles al Precio}
+
+Para reflejar con precisión el comportamiento de las subastas marginalistas y permitir la convergencia de precios coherentes con la realidad, el modelo adopta una estructura bidireccional. Se abandona la asunción de una demanda inelástica (\textit{price taker}) y de costes tecnológicos uniformes, implementando ofertas por tramos o escalones discretos tanto para la venta como para la compra de energía (\textit{piecewise bidding}).
+
+\subsection*{Curva de Oferta de Generación}
+Sea $k \in K$ el conjunto de tramos de oferta disponibles en el mercado. Cada tipología de generación $g \in G$ agrupa un subconjunto de estos tramos ($K_g \subseteq K$), parametrizados según su desempeño económico y físico:
+
+\begin{itemize}
+    \item $C_{k}$: Precio de oferta del tramo $k$ [\euro/MWh]. Representa escalones crecientes de coste marginal o de oportunidad.
+    \item $\underline{P}_{k}, \overline{P}_{k}$: Capacidades mínima y máxima operativas asignables al tramo $k$ [MWh]. 
+\end{itemize}
+
+En cualquier escenario simulado, la variable de decisión de potencia despachada por cada tramo individual de generación ($p_{k}$) debe respetar sus límites técnicos:
+
+\begin{equation} \label{eq:limites_gen}
+    \underline{P}_{k} \le p_{k} \le \overline{P}_{k} \quad \forall k \in K
+\end{equation}
+
+Adicionalmente, se modelan las restricciones termodinámicas de acoplamiento inelástico (\textit{must-run}) para las centrales térmicas. Para evitar los severos costes de parada y arranque (\textit{start-up/shut-down}), la potencia mínima estable requerida para cubrir la punta vespertina se oferta a coste nulo ($C_k=0$) en las horas valle, obligando al modelo a acoplar estos grupos prioritariamente.
+
+\subsection*{Curva de Oferta de Demanda (Demanda Elástica)}
+Sea $d \in \mathcal{D}$ el conjunto de tramos o escalones de compra presentados por los consumidores (comercializadoras, clientes directos y demanda de bombeo/exportación). Cada tramo se caracteriza por:
+
+\begin{itemize}
+    \item $U_{d}$: Disposición a pagar o utilidad del tramo de demanda $d$ [\euro/MWh]. Refleja el precio máximo que el consumidor está dispuesto a abonar.
+    \item $\overline{D}_{d}$: Volumen máximo requerido por el consumidor en dicho tramo de precio [MWh].
+\end{itemize}
+
+La potencia finalmente consumida o casada en cada tramo de demanda ($q_{d}$) queda limitada por su volumen máximo ofertado:
+
+\begin{equation} \label{eq:limites_demanda}
+    0 \le q_{d} \le \overline{D}_{d} \quad \forall d \in \mathcal{D}
+\end{equation}
+
+\section{Modelado Binivel: Problemas de Nivel Superior (Líderes Estratégicos)}
+
+La alteración estratégica del mercado se formula mediante Problemas Matemáticos con Restricciones de Equilibrio (MPEC). En esta estructura, un agente dominante (Líder) optimiza su función objetivo anticipando la respuesta racional del operador del mercado (Seguidor). 
+
+\subsection*{Escenario Alternativo 1: Agregación por Tecnología}
+El objetivo del líder sectorial ($g$) es maximizar el excedente del productor conjunto derivado de la venta de energía en todos sus escalones de potencia, alterando estratégicamente el precio de mercado ($\pi_{m}$):
+
+\begin{equation} \label{eq:lider_tecnologia}
+    \max \Pi_{g} = \sum_{k \in K_g} (\pi_{m} - C_{k}) \cdot p_{k} \quad \forall g \in G
+\end{equation}
+
+\subsection*{Escenario Alternativo 2: Agregación por Empresa}
+El líder corporativo ($e$) optimiza simultáneamente el porfolio mixto de tramos de generación bajo su control ($K_e \subseteq K$) para extraer el máximo excedente global:
+
+\begin{equation} \label{eq:lider_empresa}
+    \max \Pi_{e} = \sum_{k \in K_e} (\pi_{m} - C_{k}) \cdot p_{k} \quad \forall e \in E
+\end{equation}
+
+\section{Modelado Binivel: Problema de Nivel Inferior (Vaciado del Mercado)}
+
+La optimización de los Niveles Superiores está estrictamente condicionada por el proceso de despacho económico del operador del mercado. Con la introducción de ofertas de demanda elásticas, OMIE no ejecuta una simple minimización de costes, sino un problema de optimización continuo orientado a \textbf{Maximizar el Bienestar Social} (la diferencia entre la utilidad total de los consumidores y el coste total de los generadores). Matemáticamente, esto equivale a minimizar el coste neto del sistema:
+
+\begin{equation} \label{eq:bienestar_social}
+    \min \sum_{k \in K} C_{k} \cdot p_{k} - \sum_{d \in \mathcal{D}} U_{d} \cdot q_{d}
+\end{equation}
+
+Sujeto a la restricción estricta de balance de potencia, que garantiza el cruce exacto entre la oferta y la demanda casada, y de cuya variable dual se deriva el precio marginal endógeno del mercado ($\pi_{m}$):
+
+\begin{equation} \label{eq:balance_potencia}
+    \sum_{k \in K} p_{k} - \sum_{d \in \mathcal{D}} q_{d} = 0 \quad : (\pi_{m})
+\end{equation}
+
+Y a las restricciones físicas de capacidad de todos los tramos participantes, junto con sus respectivos multiplicadores duales:
+
+\begin{equation} \label{eq:dual_gen}
+    \underline{P}_{k} \le p_{k} \le \overline{P}_{k} \quad \forall k \in K \quad : (\lambda_{k}, \mu_{k})
+\end{equation}
+\begin{equation} \label{eq:dual_demanda}
+    0 \le q_{d} \le \overline{D}_{d} \quad \forall d \in \mathcal{D} \quad : (\rho_{d}, \tau_{d})
+\end{equation}
+
+\section{Reformulación a Nivel Único mediante Condiciones KKT}
+
+Para permitir la resolución computacional del modelo, el Nivel Inferior se sustituye analíticamente por sus condiciones de optimalidad de Karush-Kuhn-Tucker (KKT). Las ecuaciones de equilibrio resultantes que rigen el vaciado del mercado integran ahora tanto al lado de la oferta como de la demanda:
+
+\textbf{1. Condiciones de Estacionariedad:}
+\begin{equation} \label{eq:kkt_est_gen}
+    C_{k} - \pi_{m} + \mu_{k} - \lambda_{k} = 0 \quad \forall k \in K
+\end{equation}
+\begin{equation} \label{eq:kkt_est_demanda}
+    -U_{d} + \pi_{m} + \tau_{d} - \rho_{d} = 0 \quad \forall d \in \mathcal{D}
+\end{equation}
+
+\textbf{2. Condiciones de Holgura Complementaria:}
+\begin{equation} \label{eq:kkt_holg_gen_max}
+    0 \le \mu_{k} \quad \perp \quad (\overline{P}_{k} - p_{k}) \ge 0 \quad \forall k \in K
+\end{equation}
+\begin{equation} \label{eq:kkt_holg_gen_min}
+    0 \le \lambda_{k} \quad \perp \quad (p_{k} - \underline{P}_{k}) \ge 0 \quad \forall k \in K
+\end{equation}
+\begin{equation} \label{eq:kkt_holg_dem_max}
+    0 \le \tau_{d} \quad \perp \quad (\overline{D}_{d} - q_{d}) \ge 0 \quad \forall d \in \mathcal{D}
+\end{equation}
+\begin{equation} \label{eq:kkt_holg_dem_min}
+    0 \le \rho_{d} \quad \perp \quad q_{d} \ge 0 \quad \forall d \in \mathcal{D}
+\end{equation}
+
+La introducción de las condiciones KKT transforma el problema en un Programa Lineal Entero Mixto (MILP) mediante variables binarias lógicas. Desde un prisma económico, la estacionariedad de la demanda \eqref{eq:kkt_est_demanda} garantiza que si un consumidor resulta casado ($q_d > 0$), su disposición a pagar será igual o superior al precio marginal fijado por el mercado ($U_d \ge \pi_m$).
+
+\section{Análisis de Rentabilidad Relativa por Tipo de Generación}
+
+Para comparar el desempeño financiero de las distintas tecnologías frente al escenario base, se evalúa su viabilidad económica mediante el Coste Nivelado de Energía ($\overline{\text{LCOE}}_{g}$). Tras la ejecución de los modelos de optimización, la rentabilidad relativa de cada tipo de generación ($R_{g}$) se determina relacionando el precio marginal endógeno ($\pi_{m}$) con su respectivo coste nivelado, evaluando el agregado de sus correspondientes tramos ($p_{g} = \sum p_k$):
+
+\begin{equation} \label{eq:rentabilidad_general}
+    R_{g} = \frac{p_{g} \cdot \pi_{m}}{p_{g} \cdot \overline{\text{LCOE}}_{g}} = \frac{\pi_{m}}{\overline{\text{LCOE}}_{g}} \quad \forall g \in G
+\end{equation}
+
+El desglose formal para cada tipo de generación de forma independiente se define mediante las siguientes expresiones:
+
+\vspace{0.3cm}
+\textbf{Generación Nuclear:}
+\begin{equation}
+    R_{\text{nuc}} = \frac{\pi_{m}}{\overline{\text{LCOE}}_{\text{nuc}}}
+\end{equation}
+
+\vspace{0.2cm}
+\textbf{Generación Térmica:}
+\begin{equation}
+    R_{\text{cc}} = \frac{\pi_{m}}{\overline{\text{LCOE}}_{\text{cc}}}; \quad R_{\text{cog}} = \frac{\pi_{m}}{\overline{\text{LCOE}}_{\text{cog}}}
+\end{equation}
+
+\vspace{0.2cm}
+\textbf{Generación Renovable:}
+\begin{equation}
+    R_{\text{eol}} = \frac{\pi_{m}}{\overline{\text{LCOE}}_{\text{eol}}}; \quad R_{\text{sol}} = \frac{\pi_{m}}{\overline{\text{LCOE}}_{\text{sol}}}; \quad R_{\text{hid}} = \frac{\pi_{m}}{\overline{\text{LCOE}}_{\text{hid}}}
+\end{equation}
+
+Un valor de $R_{g} > 1$ indica una captura neta de rentas inframarginales.
+
+\section{Nomenclatura y Estructura Matemática del Modelo}
+
+\subsection*{Conjuntos e Índices}
+\begin{itemize}
+    \item $g \in G$: Conjunto de tipologías tecnológicas de generación.
+    \item $k \in K$: Conjunto de tramos o escalones que conforman las ofertas de venta.
+    \item $K_{g} \subseteq K$: Subconjunto de tramos de venta pertenecientes a la tecnología $g$.
+    \item $d \in \mathcal{D}$: Conjunto de tramos o escalones que conforman las ofertas de compra (demanda).
+    \item $e \in E$: Conjunto de empresas o corporaciones matrices.
+    \item $K_{e} \subseteq K$: Subconjunto de tramos de venta bajo el control corporativo de la empresa $e$.
+\end{itemize}
+
+\subsection*{Parámetros Físicos y Económicos}
+\begin{itemize}
+    \item $D$: Demanda total inelástica cubierta históricamente por el sistema en el escenario base [MWh].
+    \item $C_{k}$: Precio de oferta explícito de venta asignado al tramo de generación $k$ [\euro/MWh].
+    \item $U_{d}$: Precio de oferta de compra asignado al tramo de demanda $d$ [\euro/MWh].
+    \item $\underline{P}_{k}, \overline{P}_{k}$: Límites inferior y superior operativos del tramo de generación $k$ [MWh].
+    \item $\overline{D}_{d}$: Volumen máximo requerido por el tramo de demanda $d$ [MWh].
+    \item $P_{g}^{*}$: Potencia histórica agregada despachada por la tecnología $g$ [MWh].
+    \item $\overline{\text{LCOE}}_{g}$: Coste Nivelado de Energía estructural de la tecnología $g$ [\euro/MWh].
+\end{itemize}
+
+\subsection*{Variables de Decisión}
+\begin{itemize}
+    \item $p_{k}$: Potencia casada e inyectada por el tramo de generación $k$ [MWh].
+    \item $q_{d}$: Potencia casada y extraída por el tramo de demanda $d$ [MWh].
+    \item $\pi_{m}$: Precio marginal efectivo del mercado, derivado de la dual del balance de potencia [\euro/MWh].
+    \item $\mu_{k}, \lambda_{k}$: Multiplicadores duales de los límites superior e inferior del tramo de generación $k$ [\euro/MWh].
+    \item $\tau_{d}, \rho_{d}$: Multiplicadores duales de los límites superior e inferior del tramo de demanda $d$ [\euro/MWh].
+\end{itemize}
+
+\subsection*{Resumen de Ecuaciones del Modelo}
+
+La Tabla \ref{tab:resumen_ecuaciones} sintetiza la formulación matemática del modelo binivel (MPEC) adaptada a casación por tramos de oferta y demanda elástica.
+
+\begin{table}[h!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{lp{9.5cm}}
+\toprule
+\textbf{Componente Analítico} & \textbf{Formulación Matemática} \\ \midrule
+\textit{Nivel Superior:} Ben. Tecnológico & $\max \Pi_{g} = \sum_{k \in K_{g}} (\pi_{m} - C_{k}) \cdot p_{k} \quad \forall g \in G$ \\
+\textit{Nivel Inferior:} Bienestar Social & $\min \sum_{k \in K} C_{k} \cdot p_{k} - \sum_{d \in \mathcal{D}} U_{d} \cdot q_{d}$ \\
+Restricción de Balance Estricto & $\sum_{k \in K} p_{k} - \sum_{d \in \mathcal{D}} q_{d} = 0 \quad : (\pi_{m})$ \\
+Límites Operativos de Generación & $\underline{P}_{k} \le p_{k} \le \overline{P}_{k} \quad \forall k \in K \quad : (\lambda_{k}, \mu_{k})$ \\
+Límites Operativos de Demanda & $0 \le q_{d} \le \overline{D}_{d} \quad \forall d \in \mathcal{D} \quad : (\rho_{d}, \tau_{d})$ \\
+KKT: Estacionariedad Generación & $C_{k} - \pi_{m} + \mu_{k} - \lambda_{k} = 0 \quad \forall k \in K$ \\
+KKT: Estacionariedad Demanda & $-U_{d} + \pi_{m} + \tau_{d} - \rho_{d} = 0 \quad \forall d \in \mathcal{D}$ \\
+KKT: Holguras Generación & $0 \le \mu_{k} \perp (\overline{P}_{k} - p_{k}) \ge 0$ \newline $0 \le \lambda_{k} \perp (p_{k} - \underline{P}_{k}) \ge 0$ \\
+KKT: Holguras Demanda & $0 \le \tau_{d} \perp (\overline{D}_{d} - q_{d}) \ge 0$ \newline $0 \le \rho_{d} \perp q_{d} \ge 0$ \\ \bottomrule
+\end{tabular}
+\caption{Resumen de las ecuaciones de optimización binivel (MPEC) con demanda elástica.}
+\label{tab:resumen_ecuaciones}
+\end{table}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\cleardoublepage
+
+\chapter{Caso de estudio}\label{Cap3}
+
+Tras la formalización del modelo matemático y la metodología de optimización binivel (MPEC) en el capítulo precedente, el presente capítulo aborda su aplicación práctica en un escenario de simulación realista. La construcción de este caso de estudio se ha diseñado sistemáticamente para dar respuesta cuantitativa a las preguntas de investigación y validar los objetivos específicos relativos al ejercicio del poder de mercado en el sector eléctrico español.
+
+En consonancia con el objetivo principal de analizar las alteraciones en el precio marginal ($\pi_{m}$) derivadas de estrategias oligopólicas, el escenario seleccionado se sitúa en el Mercado Diario gestionado por el Operador del Mercado Ibérico de Energía (OMIE). Esta configuración permite aislar el comportamiento de las diferentes cohortes tecnológicas ($g$) y de las carteras corporativas ($e$), evaluando su impacto en el excedente del productor y en el Bienestar Social del sistema.
+
+Para garantizar que los resultados obtenidos sean extrapolables y rigurosos, el diseño de este caso de estudio se fundamenta en tres pilares de datos críticos: en primer lugar, la selección de horas características que representen las diferentes coyunturas operativas de la red; en segundo lugar, la caracterización técnica de las unidades generadoras; y finalmente, la integración de un contexto económico actualizado que incorpora los Costes Nivelados de Energía (LCOE) y la parametrización de ofertas empíricas por tramos tanto para la curva de generación como para la demanda.
+
+\section{Selección de Horas Características y Escenarios Estacionales}\label{sec:horas_estudio}
+
+Dada la imposibilidad computacional y analítica de simular estrategias MPEC a lo largo de un ciclo anual completo hora a hora, la metodología de esta investigación se fundamenta en la selección sistemática de instantes críticos u \textit{horas características}. Esta compartimentación busca capturar los extremos operativos del mercado donde el ejercicio del poder de mercado resulta más evidente o genera un mayor impacto en la formación de precios.
+
+Para capturar la variabilidad climática y estacional intrínseca del sistema eléctrico español, se han tomado los datos históricos consolidados correspondientes al año 2025. La reconstrucción fidedigna de este escenario base se realiza integrando los datos de la generación programada procedentes del Programa Base de Funcionamiento (PBF) gestionado por ESIOS \cite{ESIOS_PBF_2026}, junto con las curvas agregadas y los resultados oficiales de la casación marginal publicados por OMIE \cite{OMIE_Curvas_2026}. El análisis se acota a cuatro días específicos representativos de cada estación del año: el 18 de febrero (Invierno), el 15 de abril (Primavera), el 15 de julio (Verano) y el 14 de octubre (Otoño). Para cada uno de estos días, se evalúan las cuatro franjas horarias clave definidas en la metodología:
+
+\begin{enumerate}
+    \item \textbf{Hora 1 - Valle Nocturno (03:00 - 04:00 h):} Periodo de demanda mínima global y nula aportación fotovoltaica, sostenido principalmente por el régimen base nuclear y la generación eólica disponible.
+    \item \textbf{Hora 2 - Punta Matutina (08:00 - 09:00 h):} Intervalo de rápido crecimiento de la demanda por el inicio de la actividad económica, con generación fotovoltaica aún baja, lo que exige el acoplamiento rápido de tecnologías síncronas gestionables.
+    \item \textbf{Hora 3 - Valle Solar (13:00 - 15:00 h):} Instante de máxima irradiancia y producción fotovoltaica masiva, reduciendo la demanda neta del resto de tecnologías y forzando al sistema hacia sus límites de estabilidad y mínimos técnicos.
+    \item \textbf{Hora 4 - Punta Vespertina (20:00 - 21:00 h):} Pico máximo de demanda diaria del sistema coincidente con la salida total del recurso solar del orden de mérito, lo que maximiza la dependencia de tecnologías marginales gestionables.
+\end{enumerate}
+
+Las Tablas \ref{tab:escenarios_invierno}, \ref{tab:escenarios_primavera}, \ref{tab:escenarios_verano} y \ref{tab:escenarios_otono} condensan la caracterización de los escenarios base para el año 2025, estructurado a partir del cruce de datos entre la casación de OMIE y el PBF de ESIOS. Adicionalmente, para cada una de las jornadas analizadas, se emplean las curvas de demanda horaria recreadas a partir de los registros históricos de ESIOS, cuyo proceso de extracción, tratamiento de husos horarios y reconstrucción gráfica se ha realizado mediante el código de Python adjunto en el Anexo \ref{anexo:codigo_demanda}.
+
+Para modelar la elasticidad real de los consumidores, en esta fase metodológica se extraen algorítmicamente las curvas agregadas de oferta y demanda empíricas publicadas por OMIE para cada una de las horas seleccionadas. Este proceso de minería de datos permite mapear con exactitud matemática todos los bloques de compra ($d \in \mathcal{D}$), junto con sus volúmenes requeridos ($\overline{D}_{d}$) y su disposición real a pagar ($U_{d}$), eliminando de raíz la necesidad de realizar aproximaciones paramétricas sobre el comportamiento de la demanda.
+
+El análisis cuantitativo de estos perfiles temporales corrobora que las cuatro franjas horarias seleccionadas constituyen, efectivamente, los instantes operativos más críticos e interesantes para el objeto de esta investigación, al coincidir de forma unívoca con los extremos de máxima y mínima solicitación técnica. De este modo, cada tabla determina para sus respectivas franjas horarias la demanda total cubierta ($D$), el precio marginal real de casación ($\pi_{m}^{*}$) y el desglose de la potencia históricamente despachada por cada tecnología ($P_{g}^{*}$).
+
+\subsection{Escenario de Invierno (18 de Febrero)}\label{subsec:escenario_invierno}
+
+La Figura \ref{fig:demanda_invierno} ilustra el perfil de demanda real registrado durante la jornada invernal. El análisis visual de la curva corrobora la idoneidad de las horas seleccionadas. El corte de las 04:00 h captura el valle nocturno absoluto. Posteriormente, las 08:00 h reflejan el acoplamiento de la rampa matutina, mientras que las 13:00 h marcan el valle de mediodía, donde la incipiente generación fotovoltaica reduce la presión sobre el hueco térmico. Finalmente, las 20:00 h capturan el instante de máxima criticidad: la punta vespertina coincidente con la salida total del recurso solar y una alta demanda.
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=1\textwidth]{Figures/caso_estudio/curva_demanda_18feb_ajustada.png}
+    \caption{Curva de demanda real e identificación de horas críticas para el escenario de Invierno (18 de Febrero).}
+    \label{fig:demanda_invierno}
+\end{figure}
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Parámetro} & \multicolumn{1}{c}{\textbf{04:00 h}} & \multicolumn{1}{c}{\textbf{08:00 h}} & \multicolumn{1}{c}{\textbf{13:00 h}} & \multicolumn{1}{c}{\textbf{20:00 h}} \\ \midrule
+Demanda Base $D$ [MWh]\footnotemark & 23672.70 & 28597.50 & 36497.60 & 26876.60 \\
+Precio $\pi_{m}^{*}$ [\euro/MWh] & 64.98 & 101.00 & 15.36 & 159.88 \\ \midrule
+$P_{\text{nuc}}^{*}$ [MWh] & 7091.40 & 7092.40 & 7046.40 & 7057.40 \\
+$P_{\text{cc}}^{*}$ [MWh] & 0.00 & 0.00 & 0.00 & 369.00 \\
+$P_{\text{cog}}^{*}$ [MWh] & 1920.40 & 2147.60 & 1831.90 & 2230.60 \\
+$P_{\text{eol}}^{*}$ [MWh] & 8803.00 & 9605.80 & 9998.40 & 8279.40 \\
+$P_{\text{sol}}^{*}$ [MWh] & 47.30 & 1636.80 & 13791.00 & 51.30 \\
+$P_{\text{hid}}^{*}$ [MWh] & 5810.60 & 8114.90 & 3829.90 & 8888.90 \\ \bottomrule
+\end{tabular}
+\caption{Caracterización de la demanda, precios y mix de generación del escenario base - Invierno (18 Feb). Fuente: OMIE \cite{OMIE_Curvas_2026} y ESIOS \cite{ESIOS_PBF_2026}.}
+\label{tab:escenarios_invierno}
+\end{table}
+\footnotetext{El valor de la demanda asume la suma agregada de las potencias generadas en el escenario empírico. Este parámetro histórico servirá como base cuantitativa de referencia, mientras que la demanda real será procesada algorítmicamente desde los ficheros de curvas.}
+
+\clearpage
+
+\subsection{Escenario de Primavera (15 de Abril)}\label{subsec:escenario_primavera}
+
+Para el escenario primaveral, presentado en la Figura \ref{fig:demanda_primavera}, se ha procedido a realizar un ajuste temporal de las franjas de estudio (03:00, 09:00, 15:00 y 21:00 h) para capturar con mayor precisión los puntos de inflexión reales derivados del cambio de hora y la mayor prolongación de las horas de luz. El pico vespertino se consolida así a las 21:00 h.
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=1\textwidth]{Figures/caso_estudio/curva_demanda_15abr_ajustada.png}
+    \caption{Curva de demanda real e identificación de horas críticas ajustadas para el escenario de Primavera (15 de Abril).}
+    \label{fig:demanda_primavera}
+\end{figure}
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Parámetro} & \multicolumn{1}{c}{\textbf{03:00 h}} & \multicolumn{1}{c}{\textbf{09:00 h}} & \multicolumn{1}{c}{\textbf{15:00 h}} & \multicolumn{1}{c}{\textbf{21:00 h}} \\ \midrule
+Demanda Base $D$ [MWh] & 23441.80 & 31414.40 & 29990.70 & 29094.60 \\
+Precio $\pi_{m}^{*}$ [\euro/MWh] & 5.64 & 35.00 & -0.01 & 33.47 \\ \midrule
+$P_{\text{nuc}}^{*}$ [MWh] & 3779.70 & 3359.70 & 3254.70 & 3445.20 \\
+$P_{\text{cc}}^{*}$ [MWh] & 0.00 & 0.00 & 0.00 & 2151.80 \\
+$P_{\text{cog}}^{*}$ [MWh] & 1959.00 & 1954.00 & 1684.90 & 2108.20 \\
+$P_{\text{eol}}^{*}$ [MWh] & 12349.40 & 10424.60 & 6748.50 & 13026.80 \\
+$P_{\text{sol}}^{*}$ [MWh] & 6.20 & 8904.20 & 14411.90 & 9.40 \\
+$P_{\text{hid}}^{*}$ [MWh] & 5347.50 & 6771.90 & 3890.70 & 8353.20 \\ \bottomrule
+\end{tabular}
+\caption{Caracterización de la demanda, precios y mix de generación del escenario base - Primavera (15 Abr).}
+\label{tab:escenarios_primavera}
+\end{table}
+
+\clearpage
+
+\subsection{Escenario de Verano (15 de Julio)}\label{subsec:escenario_verano}
+
+En la jornada estival (Figura \ref{fig:demanda_verano}), el comportamiento de la curva evidencia la fuerte injerencia de las cargas de refrigeración. Resulta especialmente relevante el corte de las 13:00 h, donde se comprueba cómo la inserción masiva de potencia solar fotovoltaica logra aplanar la curva de carga durante las horas centrales del día.
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=1\textwidth]{Figures/caso_estudio/curva_demanda_15jul_ajustada.png}
+    \caption{Curva de demanda real e identificación de horas críticas para el escenario de Verano (15 de Julio).}
+    \label{fig:demanda_verano}
+\end{figure}
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Parámetro} & \multicolumn{1}{c}{\textbf{04:00 h}} & \multicolumn{1}{c}{\textbf{08:00 h}} & \multicolumn{1}{c}{\textbf{13:00 h}} & \multicolumn{1}{c}{\textbf{20:00 h}} \\ \midrule
+Demanda Base $D$ [MWh] & 21542.30 & 27820.10 & 36768.60 & 29977.70 \\
+Precio $\pi_{m}^{*}$ [\euro/MWh] & 107.22 & 118.81 & 46.20 & 72.84 \\ \midrule
+$P_{\text{nuc}}^{*}$ [MWh] & 6907.30 & 6915.80 & 6892.00 & 6887.80 \\
+$P_{\text{cc}}^{*}$ [MWh] & 1144.40 & 817.60 & 0.00 & 1756.00 \\
+$P_{\text{cog}}^{*}$ [MWh] & 2174.30 & 2223.40 & 2010.00 & 2219.20 \\
+$P_{\text{eol}}^{*}$ [MWh] & 7554.10 & 5036.50 & 1854.10 & 8018.10 \\
+$P_{\text{sol}}^{*}$ [MWh] & 5.10 & 8973.50 & 24917.40 & 6585.70 \\
+$P_{\text{hid}}^{*}$ [MWh] & 3757.10 & 3853.30 & 1095.10 & 4510.90 \\ \bottomrule
+\end{tabular}
+\caption{Caracterización de la demanda, precios y mix de generación del escenario base - Verano (15 Jul).}
+\label{tab:escenarios_verano}
+\end{table}
+
+\clearpage
+
+\subsection{Escenario de Otoño (14 de Octubre)}\label{subsec:escenario_otono}
+
+Finalmente, la Figura \ref{fig:demanda_otono} muestra un comportamiento clásico o "curva de pato" (\textit{duck curve}) en desarrollo. El escenario concluye con el escalón de mayor exigencia técnica a las 20:00 h, forzando la entrada rápida de los ciclos combinados e hidráulica gestionable.
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=1\textwidth]{Figures/caso_estudio/curva_demanda_14oct_ajustada.png}
+    \caption{Curva de demanda real e identificación de horas críticas para el escenario de Otoño (14 de Octubre).}
+    \label{fig:demanda_otono}
+\end{figure}
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Parámetro} & \multicolumn{1}{c}{\textbf{04:00 h}} & \multicolumn{1}{c}{\textbf{08:00 h}} & \multicolumn{1}{c}{\textbf{13:00 h}} & \multicolumn{1}{c}{\textbf{20:00 h}} \\ \midrule
+Demanda Base $D$ [MWh] & 19381.20 & 23473.00 & 31668.50 & 26175.10 \\
+Precio $\pi_{m}^{*}$ [\euro/MWh] & 115.00 & 108.13 & 107.09 & 107.22 \\ \midrule
+$P_{\text{nuc}}^{*}$ [MWh] & 4917.20 & 4919.20 & 4907.20 & 4901.20 \\
+$P_{\text{cc}}^{*}$ [MWh] & 7017.20 & 8347.90 & 625.20 & 9658.40 \\
+$P_{\text{cog}}^{*}$ [MWh] & 2052.30 & 2113.10 & 1968.40 & 2170.00 \\
+$P_{\text{eol}}^{*}$ [MWh] & 2221.50 & 1785.90 & 961.80 & 3492.90 \\
+$P_{\text{sol}}^{*}$ [MWh] & 10.00 & 1220.00 & 22529.40 & 41.60 \\
+$P_{\text{hid}}^{*}$ [MWh] & 3163.00 & 5086.90 & 676.50 & 5911.00 \\ \bottomrule
+\end{tabular}
+\caption{Caracterización de la demanda, precios y mix de generación del escenario base - Otoño (14 Oct).}
+\label{tab:escenarios_otono}
+\end{table}
+
+\clearpage
+
+\section{Parámetros Físicos y Operativos Técnicos}\label{sec:par_fisicos}
+
+La viabilidad física de los despachos alternativos generados por el modelo de optimización depende estrictamente de las restricciones dinámicas de cada tecnología de generación. En esta sección se definen las bandas de tolerancia operativas ($\delta_i$) que limitan la capacidad de rampa de las centrales térmicas, así como los factores termodinámicos necesarios para configurar los tramos inelásticos (\textit{must-run}).
+
+El punto de partida operativo para el cálculo de los límites de capacidad libre es la potencia histórica casada específica para cada tecnología ($P_{g}^{*}$). Para la generación nuclear, se asume una rigidez total frente al despacho histórico ($\delta_{\text{nuc}} = 0$). Para las tecnologías térmicas, las bandas de flexibilidad se han parametrizado tomando como base los estudios de la Agencia Internacional de la Energía (IEA) \cite{IEA_Flexibility_2018} y la International Renewable Energy Agency (IRENA) \cite{IRENA_Flexibility_2019}, asignando un 15\% de margen horario a los ciclos combinados ($\delta_{\text{cc}} = 0.15$) y un 10\% a la cogeneración ($\delta_{\text{cog}} = 0.10$).
+
+\subsection{Restricción Termodinámica de Mínimo Técnico (\textit{Must-Run})}
+
+Tal y como se dedujo en la metodología analítica, para modelar fielmente las ofertas en horas valle, es imperativo calcular la potencia térmica que debe permanecer acoplada a la red a coste nulo o negativo para evitar los severos sobrecostes de parada y arranque frente a la demanda de la punta vespertina. 
+
+Para implementar el cálculo dinámico del tramo \textit{must-run} ($P_{g,\text{mr}}$) asociado a los ciclos combinados, se definen los parámetros técnicos estándar del parque peninsular mostrados en la Tabla \ref{tab:parametros_fisicos}. A partir del cruce de datos del registro oficial de ESIOS \cite{ESIOS_Unidades_Fisicas}, se asume una potencia máxima nominal operativa promedio por unidad física de $\overline{P}_{\text{cc},\text{unit}} = 491$ MW. Por otro lado, basándose en la parametrización tecno-económica documentada por el \textit{Institute of Energy Economics} (EWI) \cite{Bertsch_EWI_2013}, el mínimo técnico para garantizar la estabilidad de la llama en las turbinas de gas se establece en el 40\% de su capacidad nominal, fijando el escalón de carga mínima en $\underline{P}_{\text{cc},\text{unit}} = 196$ MW. Empleando esta formulación empírica, el modelo restringe de manera endógena el apagado de las plantas que resultarán indispensables en las horas posteriores de máxima solicitación térmica.
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}llcll@{}}
+\toprule
+\textbf{Tecnología} & \textbf{Símbolo} & \textbf{Descripción de la Restricción} & \textbf{Valor} & \textbf{Referencia} \\ \midrule
+Nuclear & $\delta_{\text{nuc}}$ & Banda dinámica operativa (Base) & 0.00 p.u. & Asum. del modelo \\
+Ciclo Combinado & $\delta_{\text{cc}}$ & Banda dinámica operativa (Rampa) & 0.15 p.u. & IEA \cite{IEA_Flexibility_2018}, IRENA \cite{IRENA_Flexibility_2019} \\
+Ciclo Combinado & $\overline{P}_{\text{cc},\text{unit}}$ & Potencia máxima promedio & 491 MW & Estim. propia a partir de \cite{ESIOS_Unidades_Fisicas} \\
+Ciclo Combinado & $\underline{P}_{\text{cc},\text{unit}}$ & Mínimo técnico de estabilidad (40\%) & 196 MW & EWI (Bertsch et al., 2013) \cite{Bertsch_EWI_2013} \\
+Cogeneración & $\delta_{\text{cog}}$ & Banda dinámica (Acoplamiento térmico) & 0.10 p.u. & Asum. por requerimiento industria. \\
+Renovables (E/S/H) & $\underline{P}_{\text{ren}}$ & Límite inferior de vertido (\textit{curtailment}) & 0.00 MW & Asum. del modelo \\ \bottomrule
+\end{tabular}%
+}
+\caption{Parámetros físicos, restricciones dinámicas operativas y tolerancias termodinámicas por tecnología. Valores respaldados por normativa del operador del sistema y literatura técnica.}
+\label{tab:parametros_fisicos}
+\end{table}
+
+\newpage
+
+\section{Parámetros Económicos y Estructura de Ofertas de Generación y Demanda}\label{sec:par_economicos}
+
+Para cuantificar el desempeño financiero de las estrategias de agregación, se requiere una parametrización económica robusta. El análisis de la rentabilidad a posteriori se fundamenta en el Coste Nivelado de Energía ($\overline{\text{LCOE}}_{g}$), que amalgama los costes de capital (CAPEX) y los OPEX, proporcionando un umbral base documentado en la Tabla \ref{tab:parametros_economicos_filtrados}.
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}llcl@{}}
+\toprule
+\textbf{Tecnología} & \textbf{Símbolo} & \textbf{LCOE [\euro/MWh]} & \textbf{Referencia} \\ \midrule
+Nuclear & $\overline{\text{LCOE}}_{\text{nuc}}$ & 45.30 & Estim. propia a partir de (\cite{Lazard_LCOE_2024}, \cite{IRENA_Costs_2024}) \\
+Ciclo Combinado & $\overline{\text{LCOE}}_{\text{cc}}$ & 82.15 & Estim. propia a partir de (\cite{Lazard_LCOE_2024}, \cite{IRENA_Costs_2024}) \\
+Cogeneración & $\overline{\text{LCOE}}_{\text{cog}}$ & 84.50 & Estim. propia a partir de (\cite{Lazard_LCOE_2024}, \cite{IRENA_Costs_2024}) \\
+Eólica & $\overline{\text{LCOE}}_{\text{eol}}$ & 32.40 & Estim. propia a partir de (\cite{Lazard_LCOE_2024}, \cite{IRENA_Costs_2024}) \\
+Solar Fotovoltaica & $\overline{\text{LCOE}}_{\text{sol}}$ & 28.60 & Estim. propia a partir de (\cite{Lazard_LCOE_2024}, \cite{IRENA_Costs_2024}) \\
+Hidráulica & $\overline{\text{LCOE}}_{\text{hid}}$ & 35.80 & Estim. propia a partir de (\cite{Lazard_LCOE_2024}, \cite{IRENA_Costs_2024}) \\ \bottomrule
+\end{tabular}%
+}
+\caption{Costes Nivelados de Energía (LCOE) estructurales por tecnología para el cálculo de rentabilidad del sistema.}
+\label{tab:parametros_economicos_filtrados}
+\end{table}
+
+Para la simulación del algoritmo de casación (Nivel Inferior del MPEC), el modelo implementa una estructura bidireccional de \textbf{ofertas por tramos o escalones discretos}, tanto para la generación ($k \in K$) como para la demanda ($d \in \mathcal{D}$).
+
+\subsection{Curva de Oferta de Generación}
+Esta discretización permite reflejar cómo las tecnologías gestionables modifican sus precios de oferta en base a sus eficiencias marginales, costes de oportunidad y volúmenes requeridos. Las tecnologías inframarginales no gestionables (Solar y Eólica), la generación Nuclear y la Hidráulica Fluyente (carente de capacidad de almacenamiento) concentran toda su capacidad en un primer tramo ($k_1$) ofertado a 0 \euro/MWh, actuando como agentes precio-aceptantes según el diseño marginalista \cite{CNMC_Mercado_2024}. 
+
+Por el contrario, la Hidráulica de embalse y los Ciclos Combinados fraccionan su capacidad técnica en escalones de precios crecientes, tal y como se detalla en la Tabla \ref{tab:tramos_oferta}. En el caso del Ciclo Combinado, el primer tramo refleja la inercia térmica obligatoria (\textit{must-run}). El segundo escalón agrupa el parque eficiente despachado a su coste marginal (LCOE), mientras que el tramo de punta refleja la entrada de unidades de menor rendimiento térmico en episodios de alta demanda \cite{Fabra_2021}. En la Hidráulica, los escalones superiores interiorizan el "coste de oportunidad del agua", ofertando el recurso embalsado a un precio equivalente al del ciclo combinado que esperan desplazar, y reservando la capacidad de bombeo para escenarios de escasez y máxima volatilidad \cite{CNMC_Hidraulica_2022}.
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}llcll@{}}
+\toprule
+\textbf{Tecnología ($g$)} & \textbf{Tramo ($k$)} & \textbf{Límite de Capacidad ($\overline{P}_{k}$)} & \textbf{Precio ($C_{k}$)} & \textbf{Justificación Económica} \\ \midrule
+Nuclear & $k_{\text{nuc},1}$ (Base) & $P_{\text{nuc}}^{*}$ & 0.00 \euro/MWh & Inflexibilidad (Precio-aceptante) \\
+Renovables (Viento/Sol) & $k_{\text{ren},1}$ (Base) & $P_{\text{ren}}^{*}$ & 0.00 \euro/MWh & Coste marginal nulo \\
+Cogeneración & $k_{\text{cog},1}$ (Base) & $P_{\text{cog}}^{*} \cdot (1 + \delta_{\text{cog}})$ & 84.50 \euro/MWh & LCOE / Coste estructural medio \\ \midrule
+Ciclo Combinado & $k_{\text{cc},1}$ (Must-run) & $P_{\text{cc},\text{mr}}$ (Cálculo endógeno) & 0.00 \euro/MWh & Evitar \textit{shut-down costs} \cite{Bertsch_EWI_2013} \\
+Ciclo Combinado & $k_{\text{cc},2}$ (Eficiente) & Hasta 10.000 MW & 82.15 \euro/MWh & SRMC y eficiencia térmica estándar \cite{CNMC_Mercado_2024} \\
+Ciclo Combinado & $k_{\text{cc},3}$ (Punta) & $> 10.000$ MW & 125.00 \euro/MWh & Plantas de menor rendimiento (Peakers) \\ \midrule
+Hidráulica & $k_{\text{hid},1}$ (Fluyente) & 0 - 4.500 MW & 0.00 \euro/MWh & Riesgo de vertido (Cero almacenaje) \cite{CNMC_Hidraulica_2022} \\
+Hidráulica & $k_{\text{hid},2}$ (Embalse) & 4.500 - 14.000 MW & 82.00 \euro/MWh & Coste oportunidad (Sombra del Gas) \cite{Fabra_2021} \\
+Hidráulica & $k_{\text{hid},3}$ (Bombeo/Pico) & $> 14.000$ MW & 140.00 \euro/MWh & Coste de oportunidad de escasez \cite{CNMC_Hidraulica_2022} \\ \bottomrule
+\end{tabular}%
+}
+\caption{Parametrización de los tramos de oferta de generación en el Nivel Inferior. Límites de capacidad basados en la estructura real del parque peninsular y precios determinados por costes marginales y de oportunidad.}
+\label{tab:tramos_oferta}
+\end{table}
+
+\subsection{Curva de Demanda Empírica (OMIE)}
+
+En coherencia con la formulación analítica de la metodología, el Nivel Inferior del modelo incorpora escalones de compra ($d \in \mathcal{D}$) para modelar la flexibilidad de los consumidores frente a escaladas de precios oligopólicas. Para dotar de máximo rigor empírico al caso de estudio, se prescinde de segmentaciones teóricas o paramétricas; en su lugar, se importa directamente la estructura real de la curva agregada de demanda del mercado diario publicada por el Operador del Mercado Ibérico de Energía \cite{OMIE_Curvas_2026} bajo el registro oficial de la curva agregada de oferta y demanda (\textit{CURVA\_PDBC}) correspondiente a cada hora de simulación.
+
+Mediante el procesamiento algorítmico de estas curvas históricas, cada escalón ofertado por los agentes compradores se transforma en un tramo independiente $d$. De esta forma, el volumen de energía solicitado en la oferta configura el parámetro de capacidad máxima ($\overline{D}_{d}$), mientras que el precio ofertado establece la Utilidad o disposición máxima a pagar de dicho tramo ($U_{d}$). 
+
+En las Figuras \ref{fig:curva_pbc_invierno}, \ref{fig:curva_pbc_primavera}, \ref{fig:curva_pbc_verano} y \ref{fig:curva_pbc_otono} —obtenidas mediante el algoritmo de procesamiento y reconstrucción detallado en el Anexo \ref{lst:curvas_omie}— se visualizan los perfiles empíricos de la demanda correspondientes a las horas de estudio seleccionadas para cada una de las estaciones del año. Las gráficas (acotadas en el eje de ordenadas para facilitar la visualización analítica) ilustran la naturaleza elástica de los últimos tramos de casación, donde incrementos marginales en el precio de vaciado motivan la desconexión secuencial de bloques de compra asociados a consumos industriales flexibles, flujos de exportación por interconexión y ciclos de bombeo hidráulico.
+
+Esta integración directa de los datos históricos del operador garantiza que la función de Bienestar Social del Nivel Inferior evalúe el equilibrio del mercado frente a una curva de demanda real, cuya elasticidad representa un reflejo exacto y fidedigno del comportamiento de las comercializadoras y la industria electrointensiva en el sistema ibérico durante las horas críticas analizadas.
+
+\newpage
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.85\textwidth]{Figures/caso_estudio/curva_elastica_invierno.png}
+    \caption{Reconstrucción de la curva de demanda agregada (OMIE) para las horas de estudio en el escenario de Invierno.}
+    \label{fig:curva_pbc_invierno}
+\end{figure}
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.85\textwidth]{Figures/caso_estudio/curva_elastica_primavera.png}
+    \caption{Reconstrucción de la curva de demanda agregada (OMIE) para las horas de estudio en el escenario de Primavera.}
+    \label{fig:curva_pbc_primavera}
+\end{figure}
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.85\textwidth]{Figures/caso_estudio/curva_elastica_verano.png}
+    \caption{Reconstrucción de la curva de demanda agregada (OMIE) para las horas de estudio en el escenario de Verano.}
+    \label{fig:curva_pbc_verano}
+\end{figure}
+
+\begin{figure}[ht!]
+    \centering
+    \includegraphics[width=0.85\textwidth]{Figures/caso_estudio/curva_elastica_otoño.png}
+    \caption{Reconstrucción de la curva de demanda agregada (OMIE) para las horas de estudio en el escenario de Otoño.}
+    \label{fig:curva_pbc_otono}
+\end{figure}
+
+\newpage
+
+\section{Agregación de Unidades Físicas por Tecnología}
+\label{sec:unidades_tecnologia}
+
+Con el objetivo de garantizar la viabilidad computacional y la coherencia analítica del modelo de despacho económico, se ha procedido a clasificar y agregar las unidades físicas de producción del sistema eléctrico peninsular. A partir de los registros oficiales proporcionados por Red Eléctrica de España mediante la plataforma ESIOS \cite{ESIOS_Unidades_Fisicas}, cada instalación se adscribe a una cohorte tecnológica específica, atendiendo a su principio termodinámico o fuente de energía primaria.
+
+Este enfoque prescinde de la dispersión geográfica de los activos para consolidar la capacidad operativa en las seis tipologías tecnológicas estructurales definidas en la metodología. El resultado de esta agregación se detalla en la Tabla \ref{tab:unidades_fisicas_tecnologia}, tras un proceso de filtrado y tratamiento de datos automatizado mediante el algoritmo en Python que se incluye en el Anexo \ref{anexo:codigo_unidades_fisicas}.
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}llrl@{}}
+\toprule
+\textbf{Tecnología de Generación} & \textbf{Componentes Clave (Unidades Físicas)} & \multicolumn{1}{c}{\textbf{Potencia Agregada [MW]}} & \textbf{Fuente} \\ \midrule
+Nuclear & Centrales síncronas base & 7117.20 & ESIOS \cite{ESIOS_Unidades_Fisicas} \\
+Ciclo Combinado & Turbinas de gas y ciclos de vapor combinados (CCGT) & 21361.90 & ESIOS \cite{ESIOS_Unidades_Fisicas} \\
+Cogeneración & Plantas industriales con aprovechamiento térmico & 4469.30 & ESIOS \cite{ESIOS_Unidades_Fisicas} \\
+Eólica & Parques de generación eólica continental y marina & 32334.10 & ESIOS \cite{ESIOS_Unidades_Fisicas} \\
+Solar Fotovoltaica & Plantas de generación mediante paneles solares & 38917.60 & ESIOS \cite{ESIOS_Unidades_Fisicas} \\
+Hidráulica & Centrales de embalse, fluyentes y bombeo & 20339.60 & ESIOS \cite{ESIOS_Unidades_Fisicas} \\ \bottomrule
+\end{tabular}%
+}
+\caption{Clasificación de componentes clave y potencia instalada agregada por cohorte tecnológica.}
+\label{tab:unidades_fisicas_tecnologia}
+\end{table}
+
+\newpage
+
+\section{Agregación por Grupos Empresariales y Sujetos del Mercado}
+\label{sec:sujetos_empresa}
+
+Para la simulación del \textit{Escenario Alternativo 2}, centrado en el comportamiento oligopólico del sistema, es necesario abandonar la segmentación puramente técnica e implementar un enfoque institucional y corporativo. De acuerdo con las metodologías de supervisión e informes de concentración de la Comisión Nacional de los Mercados y la Competencia (CNMC) \cite{CNMC_Mercado_2024}, el ejercicio del poder de mercado en el sistema ibérico está ligado a la estructura de propiedad y control efectivo que las sociedades matrices ejercen sobre sus filiales.
+
+Por consiguiente, los sujetos del mercado registrados de forma independiente en el sistema de información de ESIOS \cite{ESIOS_Sujetos_Mercado} se consolidan en cinco grandes bloques estratégicos ($e \in E$). Este criterio de agregación unifica bajo una misma matriz corporativa a aquellas sociedades dedicadas a la generación convencional y a las divisiones de activos renovables. Un ejemplo de este principio metodológico es la agregación de las plantas integradas en las filiales térmicas o de gestión de mercado con aquellas pertenecientes a las filiales de energías renovables bajo el control unívoco de una misma marca.
+
+La estructura resultante identifica a los cuatro operadores principales con capacidad de influencia en el orden de mérito por volumen de activos, confinando al resto de agentes independientes y comercializadores marginales en una quinta categoría común. La configuración de estos sujetos del mercado consolidados se detalla en la Tabla \ref{tab:cuota_mercado_cnmc}.
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}cllrc@{}}
+\toprule
+\textbf{Bloque ($e$)} & \textbf{Grupo Corporativo} & \textbf{Sujetos Integrados por Matriz Común (Ejemplos)} & \textbf{Cuota Mercado (\%)} & \textbf{Ref. Criterio} \\ \midrule
+E1 & Endesa & Endesa Generación, Endesa Renovables, Enel Green Power & 26.0 & \cite{CNMC_Mercado_2024, ESIOS_Sujetos_Mercado} \\
+E2 & Iberdrola & Iberdrola Generación, Iberdrola Renovables España & 28.0 & \cite{CNMC_Mercado_2024, ESIOS_Sujetos_Mercado} \\
+E3 & Naturgy & Naturgy Generación, Naturgy Renovables & 14.0 & \cite{CNMC_Mercado_2024, ESIOS_Sujetos_Mercado} \\
+E4 & EDP & EDP España, EDP Renovables España & 5.0 & \cite{CNMC_Mercado_2024, ESIOS_Sujetos_Mercado} \\
+E5 & Resto del Mercado & Productores independientes, cooperativas, autoconsumo & 27.0 & \cite{CNMC_Mercado_2024, ESIOS_Sujetos_Mercado} \\
+\bottomrule
+\end{tabular}%
+}
+\caption{Estructura de agregación de sujetos de mercado por matriz corporativa y cuota de generación.}
+\label{tab:cuota_mercado_cnmc}
+\end{table}
+
+A continuación, se detalla la capacidad instalada real (expresada en MW) de cada grupo empresarial, desagregada por filial y cohorte tecnológica. Este nivel de detalle técnico, derivado directamente del procesamiento y filtrado algorítmico automatizado de las Unidades de Programación operativas del sistema presentado en el Anexo \ref{anexo:codigo_empresas}, constituye el pilar fundamental para parametrizar las funciones de coste y las curvas de oferta exógenas de cada agente en el modelo de despacho económico. De este modo, se garantiza la correspondencia matemática exacta entre la titularidad corporativa del porfolio y las restricciones de capacidad por tecnología que rigen el mix de generación peninsular.
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+\textbf{Sub-empresa / Filial} & \multicolumn{1}{c}{\textbf{Ciclo Comb.}} & \multicolumn{1}{c}{\textbf{Cogen.}} & \multicolumn{1}{c}{\textbf{Eólica}} & \multicolumn{1}{c}{\textbf{Hidráulica}} & \multicolumn{1}{c}{\textbf{Nuclear}} & \multicolumn{1}{c}{\textbf{Solar FV}} & \multicolumn{1}{c}{\textbf{TOTAL [MW]}} \\ \midrule
+Endesa Cogener. y Renovables & 0.00 & 0.00 & 2922.00 & 75.60 & 0.00 & 2348.10 & 5345.70 \\
+Grupo Endesa Generación & 2919.20 & 0.00 & 0.00 & 5261.70 & 3032.80 & 120.30 & 11334.00 \\ \midrule
+\textbf{Total Endesa} & \textbf{2919.20} & \textbf{0.00} & \textbf{2922.00} & \textbf{5337.30} & \textbf{3032.80} & \textbf{2476.80} & \textbf{16679.70} \\ \bottomrule
+\end{tabular}%
+}
+\caption{Desglose de potencia instalada agregada por filial (Grupo Endesa).}
+\label{tab:cuota_endesa}
+\end{table}
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+\textbf{Sub-empresa / Filial} & \multicolumn{1}{c}{\textbf{Ciclo Comb.}} & \multicolumn{1}{c}{\textbf{Cogen.}} & \multicolumn{1}{c}{\textbf{Eólica}} & \multicolumn{1}{c}{\textbf{Hidráulica}} & \multicolumn{1}{c}{\textbf{Nuclear}} & \multicolumn{1}{c}{\textbf{Solar FV}} & \multicolumn{1}{c}{\textbf{TOTAL [MW]}} \\ \midrule
+Iberdrola Generación & 0.00 & 0.00 & 0.00 & 9713.20 & 0.00 & 0.00 & 9713.20 \\
+Iberdrola Generación España & 0.00 & 132.30 & 6480.00 & 111.60 & 0.00 & 3377.00 & 10100.90 \\
+Iberdrola Generación Nuclear & 0.00 & 0.00 & 0.00 & 0.00 & 4084.40 & 0.00 & 4084.40 \\
+Iberdrola Generación Térmica & 5183.40 & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 & 5183.40 \\ \midrule
+\textbf{Total Iberdrola} & \textbf{5183.40} & \textbf{132.30} & \textbf{6480.00} & \textbf{9824.80} & \textbf{4084.40} & \textbf{3377.00} & \textbf{29081.90} \\ \bottomrule
+\end{tabular}%
+}
+\caption{Desglose de potencia instalada agregada por filial (Grupo Iberdrola).}
+\label{tab:cuota_iberdrola}
+\end{table}
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+\textbf{Sub-empresa / Filial} & \multicolumn{1}{c}{\textbf{Ciclo Comb.}} & \multicolumn{1}{c}{\textbf{Cogen.}} & \multicolumn{1}{c}{\textbf{Eólica}} & \multicolumn{1}{c}{\textbf{Hidráulica}} & \multicolumn{1}{c}{\textbf{Nuclear}} & \multicolumn{1}{c}{\textbf{Solar FV}} & \multicolumn{1}{c}{\textbf{TOTAL [MW]}} \\ \midrule
+Gas Natural Comercializadora & 0.00 & 61.00 & 2415.50 & 110.40 & 0.00 & 933.10 & 3520.00 \\
+Naturgy Ciclos Combinados & 7295.40 & 0.00 & 0.00 & 0.00 & 0.00 & 0.00 & 7295.40 \\
+Naturgy Generación S.L.U. & 0.00 & 0.00 & 0.00 & 1929.90 & 0.00 & 0.00 & 1929.90 \\ \midrule
+\textbf{Total Naturgy} & \textbf{7295.40} & \textbf{110.20} & \textbf{2417.20} & \textbf{2044.90} & \textbf{0.00} & \textbf{975.10} & \textbf{12842.80} \\ \bottomrule
+\end{tabular}%
+}
+\caption{Desglose de potencia instalada agregada por filial (Grupo Naturgy).}
+\label{tab:cuota_naturgy}
+\end{table}
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+\textbf{Sub-empresa / Filial} & \multicolumn{1}{c}{\textbf{Ciclo Comb.}} & \multicolumn{1}{c}{\textbf{Cogen.}} & \multicolumn{1}{c}{\textbf{Eólica}} & \multicolumn{1}{c}{\textbf{Hidráulica}} & \multicolumn{1}{c}{\textbf{Nuclear}} & \multicolumn{1}{c}{\textbf{Solar FV}} & \multicolumn{1}{c}{\textbf{TOTAL [MW]}} \\ \midrule
+EDP España, S.A. & 426.00 & 10.00 & 1865.10 & 450.60 & 0.00 & 93.70 & 2845.40 \\ \midrule
+\textbf{Total EDP} & \textbf{426.00} & \textbf{10.00} & \textbf{1865.10} & \textbf{450.60} & \textbf{0.00} & \textbf{93.70} & \textbf{2845.40} \\ \bottomrule
+\end{tabular}%
+}
+\caption{Desglose de potencia instalada agregada por filial (Grupo EDP).}
+\label{tab:cuota_edp}
+\end{table}
+
+
+\begin{table}[ht!]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+\textbf{Agrupación} & \multicolumn{1}{c}{\textbf{Ciclo Comb.}} & \multicolumn{1}{c}{\textbf{Cogen.}} & \multicolumn{1}{c}{\textbf{Eólica}} & \multicolumn{1}{c}{\textbf{Hidráulica}} & \multicolumn{1}{c}{\textbf{Nuclear}} & \multicolumn{1}{c}{\textbf{Solar FV}} & \multicolumn{1}{c}{\textbf{TOTAL [MW]}} \\ \midrule
+\textbf{Total Resto del Mercado} & \textbf{7320.90} & \textbf{4216.80} & \textbf{18617.50} & \textbf{2682.00} & \textbf{0.00} & \textbf{31586.20} & \textbf{64423.40} \\ \bottomrule
+\end{tabular}%
+}
+\caption{Desglose de potencia instalada agregada para el resto de productores independientes (E5).}
+\label{tab:cuota_e5}
+\end{table}

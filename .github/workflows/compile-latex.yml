@@ -1,0 +1,140 @@
+name: Compile LaTeX to PDF
+
+on:
+  push:
+    paths:
+      - 'static/txt/meto_caso_estudio.txt'
+  pull_request:
+    paths:
+      - 'static/txt/meto_caso_estudio.txt'
+  workflow_dispatch:
+
+jobs:
+  compile-pdf:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build wrapper LaTeX document
+        run: |
+          mkdir -p build/Figures/caso_estudio
+
+          # Create placeholder images for any referenced figures so compilation doesn't fail
+          for fig in \
+            curva_demanda_18feb_ajustada \
+            curva_demanda_15abr_ajustada \
+            curva_demanda_15jul_ajustada \
+            curva_demanda_14oct_ajustada \
+            curva_elastica_invierno \
+            curva_elastica_primavera \
+            curva_elastica_verano \
+            "curva_elastica_otoño"; do
+            printf '%s' 'placeholder' > "build/Figures/caso_estudio/${fig}.png"
+          done
+
+          cat > build/main.tex << 'LATEX_EOF'
+          \documentclass[12pt,a4paper]{report}
+
+          % Encoding & language
+          \usepackage[utf8]{inputenc}
+          \usepackage[T1]{fontenc}
+          \usepackage[spanish]{babel}
+
+          % Math
+          \usepackage{amsmath}
+          \usepackage{amssymb}
+
+          % Tables
+          \usepackage{booktabs}
+          \usepackage{array}
+          \usepackage{tabularx}
+
+          % Figures
+          \usepackage{graphicx}
+          \usepackage{float}
+
+          % Layout
+          \usepackage{geometry}
+          \geometry{margin=2.5cm}
+
+          % Euro symbol
+          \usepackage{eurosym}
+
+          % Hyperlinks
+          \usepackage{hyperref}
+          \hypersetup{colorlinks=true, linkcolor=blue, citecolor=blue, urlcolor=blue}
+
+          % Resize box
+          \usepackage{adjustbox}
+
+          % Dummy bibliography to avoid errors from \cite
+          \begin{filecontents*}{refs.bib}
+          @misc{OMIE_Curvas_2026, title={OMIE Curvas}, year={2026}}
+          @misc{ESIOS_PBF_2026, title={ESIOS PBF}, year={2026}}
+          @misc{ESIOS_Unidades_Fisicas, title={ESIOS Unidades Fisicas}}
+          @misc{ESIOS_Sujetos_Mercado, title={ESIOS Sujetos Mercado}}
+          @misc{IEA_Flexibility_2018, title={IEA Flexibility}, year={2018}}
+          @misc{IRENA_Flexibility_2019, title={IRENA Flexibility}, year={2019}}
+          @misc{IRENA_Costs_2024, title={IRENA Costs}, year={2024}}
+          @misc{Bertsch_EWI_2013, title={EWI Bertsch}, year={2013}}
+          @misc{CNMC_Mercado_2024, title={CNMC Mercado}, year={2024}}
+          @misc{CNMC_Hidraulica_2022, title={CNMC Hidraulica}, year={2022}}
+          @misc{Fabra_2021, title={Fabra}, year={2021}}
+          @misc{Lazard_LCOE_2024, title={Lazard LCOE}, year={2024}}
+          \end{filecontents*}
+
+          \usepackage[backend=bibtex,style=numeric]{biblatex}
+          \addbibresource{refs.bib}
+
+          % Suppress missing figure errors — show a placeholder box instead
+          \makeatletter
+          \renewcommand{\includegraphics}[2][]{%
+            \fbox{\parbox{6cm}{\centering\small[Figura: #2]}}%
+          }
+          \makeatother
+
+          \begin{document}
+
+          \tableofcontents
+          \clearpage
+
+          \input{chapter.tex}
+
+          \printbibliography
+
+          \end{document}
+          LATEX_EOF
+
+          # Copy the source file as a proper .tex chapter
+          cp static/txt/meto_caso_estudio.txt build/chapter.tex
+
+      - name: Install TeX Live
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            texlive-latex-base \
+            texlive-latex-extra \
+            texlive-lang-spanish \
+            texlive-fonts-recommended \
+            texlive-bibtex-extra
+
+      - name: Compile PDF
+        working-directory: build
+        run: |
+          # Pass 1: initial compilation (generates .aux)
+          pdflatex -interaction=nonstopmode main.tex
+          # Pass 2: resolve bibliography
+          bibtex main || true
+          # Pass 3 & 4: resolve cross-references and labels
+          pdflatex -interaction=nonstopmode main.tex
+          pdflatex -interaction=nonstopmode main.tex
+          test -f main.pdf
+
+      - name: Upload PDF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: meto_caso_estudio-pdf
+          path: build/main.pdf
+          retention-days: 30
